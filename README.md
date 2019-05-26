@@ -6,6 +6,9 @@ Alongsize is an implementation of the EMRI transition formalism of Ori & Thorne 
 
 
 author: Matthias Fabry
+
 date: 26 May 2019
+
 affiliation: Institute for Theoretical Physics; KU Leuven; Leuven; Belgium
+
 Licence: None, you can freely use, modify, and distribute these modules. An honorable mention would be appreciated though.
