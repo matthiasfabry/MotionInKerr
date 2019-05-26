@@ -1,5 +1,5 @@
 
-*.py
+/*.py
 parameterspacesearch.txt
 *.pyc
 .idea/*

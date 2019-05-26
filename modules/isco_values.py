@@ -1,19 +1,11 @@
 """
-Created on Apr 12, 2019
+Evaluation of energy, angular momentum and angular velocity of the ISCO
 
-@author: Matthias
+author: Matthias Fabry
+date: 26 May 2019
 """
 import numpy as np
-
-
-def risco(a):
-    if a > 0.0:
-        x = 1.
-    else:
-        x = -1
-    z1 = 1 + np.cbrt(1 - a ** 2) * (np.cbrt(1 + a) + np.cbrt(1 - a))
-    z2 = np.sqrt(3 * a ** 2 + z1 ** 2)
-    return 3 + z2 - x * np.sqrt((3 - z1) * (3 + z1 + 2 * z2))
+from modules.orbits import risco
 
 
 def e_isco(a):

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 import sympy as sp
 
-from modules.corrections import epsAtIsco
+from modules.corrections import eps_at_isco
 from modules.isco_values import *
 from modules.kerr_functions import *
 
@@ -63,7 +63,7 @@ class KesdensExpansion:
         self._beta = -0.5 * (self._V.diff(r, lz).subs([(r, self._r_isco), (e, e_isco(self._a)), (lz, lz_isco(self._a))])
                              + omega_isco(self._a) * self._V.diff(r, e).subs(
                     [(r, self._r_isco), (e, e_isco(self._a)), (lz, lz_isco(self._a))]))
-        self._kappa = 32. / 5 * omega_isco(self._a) ** (7. / 3) * epsAtIsco(self._a) * (
+        self._kappa = 32. / 5 * omega_isco(self._a) ** (7. / 3) * eps_at_isco(self._a) * (
                 1 + self._a / self._r_isco ** 1.5) / np.sqrt(
             1 - 3 / self._r_isco + 2 * self._a / self._r_isco ** 1.5)
         self._transition_time, self._ode_solution = self._evolve()
@@ -144,6 +144,3 @@ class KesdensExpansionDimensionless:
 
     def get_isco_crossing_time(self):
         return self._transition_time
-
-
-
