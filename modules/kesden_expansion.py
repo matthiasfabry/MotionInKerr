@@ -12,6 +12,9 @@ from modules.kerr_functions import *
 
 class KesdensExpansion:
 
+    def _transition_start(self, t, y):
+        return y[0] - 1.01*self._r_isco
+
     def _transitions(self, t, y):
         return y[0] - self._r_isco
 
@@ -29,26 +32,36 @@ class KesdensExpansion:
         count = 1
         while not done:
             print('starting Kesden inspiral, number', count, 'of the same inspiral')
+            # noinspection PyTypeChecker
             sol = integrate.solve_ivp(self._ders,
                                       (self._tau_init, self._span),
                                       (self._r_isco+(-self._eta*self._beta*self._kappa*self._tau_init/self._alpha)**0.5,
                                        -0.5*(-self._eta*self._beta*self._kappa/(self._alpha*self._tau_init))**0.5),
                                       dense_output=True,
-                                      events=[self._transitions, self._transition_end],
+                                      events=[self._transitions, self._transition_start, self._transition_end],
                                       method='Radau')
-            if len(sol.t_events[1]) > 0:
+            if len(sol.t_events[2]) > 0:
                 done = True
+                self._transition_end = sol.t_events[2][0]
+                self._transition_start = sol.t_events[1][0]
+                self._transition_time = sol.t_events[0][0]
             else:
                 self._span *= 1.2
                 count += 1
-        return sol.t_events[0], sol.sol
+        return sol.sol
 
     def evaluate_in(self, ts):
         self._taus = ts
         self._rs = self._ode_solution.__call__(ts)[0]
 
-    def __init__(self, eob_equivalent, a: float, eta: float, span: float = 6000, tau_init: float = -1e7)\
+    def evaluate_in_transition(self):
+        self._taus = np.linspace(self._transition_start, self._transition_end, 200, endpoint=True)
+        self._rs = self._ode_solution.__call__(self._taus)[0]
+
+    def __init__(self, eob_equivalent, a: float, eta: float, do_correlation: bool = False,
+                 span: float = 6000, tau_init: float = -1e7)\
             -> None:
+        self._do_correlation = do_correlation
         self._taus = None
         self._rs = None
         self._eob_equivalent = eob_equivalent
@@ -57,16 +70,16 @@ class KesdensExpansion:
         self._a = a
         self._eta = eta
         self._r_isco = risco(self._a)
-        r, lz, e = sp.symbols('r lz e')
-        self._V = 1 - 2 / r + (lz ** 2 + a ** 2 - e ** 2 * a ** 2) / r ** 2 - 2 * (lz - a * e) ** 2 / r ** 3
-        self._alpha = 0.25 * self._V.diff(r, 3).subs([(r, self._r_isco), (e, e_isco(self._a)), (lz, lz_isco(self._a))])
-        self._beta = -0.5 * (self._V.diff(r, lz).subs([(r, self._r_isco), (e, e_isco(self._a)), (lz, lz_isco(self._a))])
+        r, l_z, e = sp.symbols('r lz e')
+        self._V = 1 - 2 / r + (l_z ** 2 + a ** 2 - e ** 2 * a ** 2) / r ** 2 - 2 * (l_z - a * e) ** 2 / r ** 3
+        self._alpha = 0.25 * self._V.diff(r, 3).subs([(r, self._r_isco), (e, e_isco(self._a)), (l_z, lz_isco(self._a))])
+        self._beta = -0.5 * (self._V.diff(r, l_z).subs([(r, self._r_isco), (e, e_isco(self._a)), (l_z, lz_isco(self._a))])
                              + omega_isco(self._a) * self._V.diff(r, e).subs(
-                    [(r, self._r_isco), (e, e_isco(self._a)), (lz, lz_isco(self._a))]))
+                    [(r, self._r_isco), (e, e_isco(self._a)), (l_z, lz_isco(self._a))]))
         self._kappa = 32. / 5 * omega_isco(self._a) ** (7. / 3) * eps_at_isco(self._a) * (
                 1 + self._a / self._r_isco ** 1.5) / np.sqrt(
             1 - 3 / self._r_isco + 2 * self._a / self._r_isco ** 1.5)
-        self._transition_time, self._ode_solution = self._evolve()
+        self._ode_solution = self._evolve()
 
     def get_eob_equivalent(self):
         return self._eob_equivalent

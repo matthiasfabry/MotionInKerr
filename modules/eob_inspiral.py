@@ -132,10 +132,6 @@ class EOBInspiral:
         done = False
         count = 1
         integration = None
-
-        print(energy(self._a, self._r_init, self._ecc_init))
-        print(self._Hlamb(self._r_init, 0, lz_init))
-        print(lz_init)
         while not done:
             print('starting an eob integration, number', count, 'of the same inspiral')
             # noinspection PyTypeChecker
@@ -148,7 +144,7 @@ class EOBInspiral:
                 if len(integration.t_events[2]) > 0:
                     done = True
                 else:
-                    self._span *= 1.5
+                    self._span *= 2.0
                     count += 1
             else:
                 if len(integration.t_events[0]) > 0:
@@ -159,10 +155,20 @@ class EOBInspiral:
         # print(integration)
         self._transition_time = integration.t_events[0][0]
         if self._do_correlation:
-            ts = np.linspace(integration.t_events[1][0], integration.t_events[2][0], 200, endpoint=True)
-            evals = integration.sol.__call__(ts)
-            return ts - (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time()), \
-                evals[0], evals[1], evals[2], evals[3]
+            ts = None
+            if self._correlation_mode == 'eob':
+                ts = np.linspace(integration.t_events[1][0], integration.t_events[2][0], 200, endpoint=True) - \
+                     (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
+                evals = integration.sol.__call__(ts)
+                return ts, evals[0], evals[1], evals[2], evals[3]
+            elif self._correlation_mode == 'mk':
+                ts = self._kesden_equivalent.get_taus() + \
+                     (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
+                evals = integration.sol.__call__(ts)
+                ts -= (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
+                return ts, evals[0], evals[1], evals[2], evals[3]
+            if ts is None:
+                raise RuntimeError('correlation mode is not set properly')
         else:
             ts = np.linspace(0, integration.t[-1], int(1e4))
             evals = integration.sol.__call__(ts)
@@ -170,7 +176,8 @@ class EOBInspiral:
 
     def __init__(self, a: float, eta: float, risco_factor: float, eccentricity: float = 0,
                  stop_factor: float = None, do_loss: bool = True,
-                 do_proper: bool = False, do_correlation: bool = False, ) -> None:
+                 do_proper: bool = False,
+                 correlation_mode: str = None) -> None:
         """
         Creates an EOB inspiral object with the paramters given. It immediately evolves the inspiral.
         Also, if do_correlation is True, it creates a KesdenExpansion object to compare with
@@ -181,15 +188,18 @@ class EOBInspiral:
         :param stop_factor: float, stop of the inspiral in units of r_isco
         :param do_loss: boolean, switch to put energy flux to zero if False
         :param do_proper: boolean, switch to do inspiral in terms of proper time (True) or coordinate time (False)
-        :param do_correlation: boolean, switch to do a correlation with a KesdenInspiral object
+        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object
         """
         self._ecc_init = eccentricity
         self._stop_factor = stop_factor
-        self._do_correlation = do_correlation
+        if correlation_mode is not None:
+            self._do_correlation = True
+            self._correlation_mode = correlation_mode
+            self._kesden_equivalent = modules.kesden_expansion.KesdensExpansion(self, a, eta)
+        else:
+            self._do_correlation = False
         self._do_proper = do_proper
         self._doLoss = do_loss
-        if self._do_correlation:
-            self._kesden_equivalent = modules.kesden_expansion.KesdensExpansion(self, a, eta)
         self._span = 10000.0
         self._risco_factor = risco_factor
         self._a = a
@@ -206,10 +216,14 @@ class EOBInspiral:
         self._dHdprlamb = sp.lambdify((r, pr, pphi), self._dHdpr, 'numpy')
         self._dHdpphilamb = sp.lambdify((r, pr, pphi), self._dHdpphi, 'numpy')
         self._dHdrlamb = sp.lambdify((r, pr, pphi), self._dHdr, 'numpy')
-        self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
-        self._ens = self._Hlamb(self._rs, self._prs, self._pphis)
-        if do_correlation:
+
+        if correlation_mode == 'oeb':
+            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
             self._kesden_equivalent.evaluate_in(self._ts)
+        elif correlation_mode == 'mk':
+            self._kesden_equivalent.evaluate_in_transition()
+            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
+        self._ens = self._Hlamb(self._rs, self._prs, self._pphis)
         self._ps, self._es = get_orbital_parameters(self._a, self._ens, self._pphis)
 
     def get_ts(self):
@@ -263,7 +277,6 @@ class EOBInspiral:
         if self._rs[index] - r > r - self._rs[index - 1]:
             index -= 1
         vrs = v_r(self._a, self._rs, self._ens[index], self._pphis[index])
-        plt.figure(figsize=(7, 4))
         plt.plot(self._rs, vrs)
         plt.hlines(0, self._rs[-1], self._rs[0])
         plt.vlines(self._r_isco, min(vrs), max(vrs), 'g')
@@ -272,31 +285,26 @@ class EOBInspiral:
     def plot_crossing_correlation(self):
         if not self._do_correlation:
             raise ValueError('not supported in \'do_correlation = False\' mode')
-        plt.figure(figsize=(7, 4), dpi=200)
-        ax = plt.gcf().add_subplot(111)
-        ax.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), self._rs, 'b', label='EOB Inspiral')
-        ax.plot(self._kesden_equivalent.get_taus()-self._kesden_equivalent.get_isco_crossing_time(),
-                self._kesden_equivalent.get_rs(), 'r', label='MK\'s expansion')
-        ax.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), np.ones(len(self._ts))*self._r_isco, 'g')
-        ax.fill_between(self._ts-self._kesden_equivalent.get_isco_crossing_time(),
-                        self._kesden_equivalent.get_rs(), self._rs, color='black', alpha='0.2')
+        plt.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), self._rs, 'b', label='EOB Inspiral')
+        plt.plot(self._kesden_equivalent.get_taus()-self._kesden_equivalent.get_isco_crossing_time(),
+                 self._kesden_equivalent.get_rs(), 'r', label='MK\'s expansion')
+        plt.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), np.ones(len(self._ts))*self._r_isco, 'g')
+        plt.fill_between(self._ts-self._kesden_equivalent.get_isco_crossing_time(),
+                         self._kesden_equivalent.get_rs(), self._rs, color='black', alpha='0.2')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        ax.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts) * 0.85)] -
+        plt.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts) * 0.85)] -
                                     self._kesden_equivalent.get_isco_crossing_time(), self._r_isco),
-                    color='g', bbox=bbox)
-        ax.annotate(r'$a = {} M$'.format(self._a), (0.05, 0.05), xycoords='axes fraction', bbox=bbox)
-        ax.annotate(r'$\eta = {}$'.format(self._eta), (0.05, 0.15), xycoords='axes fraction', bbox=bbox)
-        ax.legend()
-        ax.set_xlabel(r'$\tau/M-\tau_{crossing}/M$')
-        ax.set_ylabel(r'$r/M$')
-        plt.tight_layout(pad=0.2)
-        # plt.savefig('../images/EOBCrossingcorrelation_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
+                     color='g', bbox=bbox)
+        plt.annotate(r'$a = {} M$'.format(self._a), (0.05, 0.05), xycoords='axes fraction', bbox=bbox)
+        plt.annotate(r'$\eta = {}$'.format(self._eta), (0.05, 0.15), xycoords='axes fraction', bbox=bbox)
+        plt.legend(loc='center left')
+        plt.xlabel(r'$\tau/M-\tau_{crossing}/M$')
+        plt.ylabel(r'$r/M$')
 
     def plot_energy_r(self):
         plt.plot(self._rs, self._ens, 'b.')
         plt.xlabel(r'$r$')
         plt.ylabel(r'energy')
-        # plt.savefig('../images/r_energy_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
 
     def plot_orbit_cartesian(self):
         plt.figure()
@@ -327,37 +335,22 @@ class EOBInspiral:
                     (0.05, 0.7), xycoords='figure fraction', bbox=bbox)
         ax.axis('off')
         plt.fill_between(twopi, 0, rplus(self._a), color='black')
-        plt.tight_layout(pad=0.2)
-        # plt.savefig('../images/EOBOrbit_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
 
     def plot_radial_trajectory(self):
-        plt.figure()
-        ax = plt.gcf().add_subplot(111)
-        ax.plot(self._ts, self._rs, label='eob_inspiral')
-        ax.plot(self._ts, np.ones(len(self._ts))*self._r_isco, 'g')
-        # ax.plot(self._ts, np.ones(len(self._ts))*rergo(), 'r')
-        # ax.plot(self._ts, np.ones(len(self._ts))*rplus(self._a), 'k')
+        plt.plot(self._ts, self._rs, label='eob_inspiral')
+        plt.plot(self._ts, np.ones(len(self._ts))*self._r_isco, 'g')
         if self._stop_factor is not None:
-            ax.plot(self._ts, np.ones(len(self._ts))*self._r_isco*self._stop_factor)
+            plt.plot(self._ts, np.ones(len(self._ts))*self._r_isco*self._stop_factor)
         if self._do_proper:
             label = r'$\tau$'
         else:
             label = r'$t$'
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        ax.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts)*0.85)], self._r_isco), color='g', bbox=bbox)
-        # ax.annotate(r'$r_{ergo}$', (self._ts[int(len(self._ts)*0.85)], rergo()), color='r', bbox=bbox)
-        # ax.annotate(r'$r_{+}$', (self._ts[int(len(self._ts)*0.85)], rplus(self._a)), color='k', bbox=bbox)
-        plt.xticks([0, 500, 1000])
+        plt.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts)*0.85)], self._r_isco), color='g', bbox=bbox)
         plt.xlabel(label)
-        plt.ylabel(r'$r$')
-        plt.tight_layout(pad=0.2)
-        # plt.savefig('../images/EOBtraj_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
-
-    def plot_shifted_radial_trajectory(self):
-        plt.plot(self._ts - self.get_isco_crossing_time(), self._rs, 'b.', label='eobinspiral')
+        plt.ylabel(r'$r/M$')
 
     def plot_eccentricity_t(self):
-        plt.figure(figsize=(7, 4))
         plt.plot(self._ts, self._es)
         if self._do_proper:
             label = r'$\tau$'
@@ -365,31 +358,26 @@ class EOBInspiral:
             label = r'$t$'
         plt.xlabel(label)
         plt.ylabel(r'eccentricity')
-        plt.tight_layout(pad=0.2)
-        # plt.savefig('../images/t_ecc_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
 
     def plot_eccentricity_r(self):
-        plt.figure(figsize=(7, 4))
         plt.plot(self._rs, self._es)
         plt.xlabel(r'$r/M$')
         plt.ylabel(r'$e$')
         plt.vlines(self._r_isco, 0, max(self._es), colors='g')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.0005), color='g', bbox=bbox)
+        plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.1*max(self._es)), color='g', bbox=bbox)
         plt.vlines(r_crit(self._a), min(self._es), max(self._es))
-        plt.tight_layout(pad=0.2)
-        # plt.savefig('images/r_ecc_{}_{}_{}.png'.format(self._a, self._eta, self._risco_factor))
+        plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
 
     def plot_eccentricity_p(self):
-        plt.figure(figsize=(7, 4))
         plt.plot(self._ps, self._es)
         plt.xlabel(r'$p/M$')
         plt.ylabel(r'$e$')
         plt.vlines(self._r_isco, 0, max(self._es), colors='g')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.0005), color='g', bbox=bbox)
+        plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.1*max(self._es)), color='g', bbox=bbox)
         plt.vlines(r_crit(self._a), min(self._es), max(self._es))
-        plt.tight_layout(pad=0.2)
+        plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
 
     def animate_orbit(self):
         fig = plt.figure(figsize=(7, 4))
