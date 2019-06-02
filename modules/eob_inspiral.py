@@ -223,8 +223,11 @@ class EOBInspiral:
         elif correlation_mode == 'mk':
             self._kesden_equivalent.evaluate_in_transition()
             self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
+        else:
+            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
         self._ens = self._Hlamb(self._rs, self._prs, self._pphis)
         self._ps, self._es = get_orbital_parameters(self._a, self._ens, self._pphis)
+        self._plot_vr_calls = 0
 
     def get_ts(self):
         return self._ts
@@ -261,14 +264,15 @@ class EOBInspiral:
         return relerror / len(self._ts)
 
     def plot_vr_at(self, r):
+        self._plot_vr_calls += 1
         if r > self._rs[0]:
             print('radius is larger than starting point of the inspiral; choose between {} and {}; skipping'
                   .format(self._rs[0], self._rs[-1]))
-            pass
+            return
         elif r < self._rs[-1]:
             print('radius is smaller than end point of the inspiral; choose between {} and {}; skipping'
                   .format(self._rs[0], self._rs[-1]))
-            pass
+            return
         index = 0
         for i in range(len(self._rs)):
             if self._rs[i] < r:
@@ -280,7 +284,12 @@ class EOBInspiral:
         plt.plot(self._rs, vrs)
         plt.hlines(0, self._rs[-1], self._rs[0])
         plt.vlines(self._r_isco, min(vrs), max(vrs), 'g')
-        plt.scatter(self._rs[index], v_r(self._a, self._rs[index], self._ens[index], self._pphis[index]))
+        plt.scatter(self._rs[index], vrs[index])
+        plt.xlabel(r'$r/M$')
+        plt.ylabel(r'$V_r$')
+        if self._plot_vr_calls == 1:
+            bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
+            plt.annotate(r'$r_{ISCO}$', (self._r_isco, -300*vrs[index]), color='g', bbox=bbox)
 
     def plot_crossing_correlation(self):
         if not self._do_correlation:
@@ -293,7 +302,7 @@ class EOBInspiral:
                          self._kesden_equivalent.get_rs(), self._rs, color='black', alpha='0.2')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
         plt.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts) * 0.85)] -
-                                    self._kesden_equivalent.get_isco_crossing_time(), self._r_isco),
+                                     self._kesden_equivalent.get_isco_crossing_time(), self._r_isco),
                      color='g', bbox=bbox)
         plt.annotate(r'$a = {} M$'.format(self._a), (0.05, 0.05), xycoords='axes fraction', bbox=bbox)
         plt.annotate(r'$\eta = {}$'.format(self._eta), (0.05, 0.15), xycoords='axes fraction', bbox=bbox)
@@ -366,8 +375,8 @@ class EOBInspiral:
         plt.vlines(self._r_isco, 0, max(self._es), colors='g')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
         plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.1*max(self._es)), color='g', bbox=bbox)
-        plt.vlines(r_crit(self._a), min(self._es), max(self._es))
-        plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
+        # plt.vlines(r_crit(self._a), min(self._es), max(self._es))
+        # plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
 
     def plot_eccentricity_p(self):
         plt.plot(self._ps, self._es)
