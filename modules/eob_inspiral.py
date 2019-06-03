@@ -235,6 +235,9 @@ class EOBInspiral:
     def get_rs(self):
         return self._rs
 
+    def get_es(self):
+        return self._es
+
     def get_kesden_equivalent(self):
         return self._kesden_equivalent
 
@@ -262,6 +265,16 @@ class EOBInspiral:
             relerror += np.abs(self._rs[i] - self._kesden_equivalent.get_rs()[i]) / \
                      self._rs[i]
         return relerror / len(self._ts)
+
+    def r_inc(self):
+        es = self._es
+        rs = self._rs
+        eprimes = [0] + [(es[i]-es[i-1])/(rs[i]-rs[i-1]) for i in range(1, len(rs))]
+        radii = []
+        for i in range(len(self._rs)):
+            if -eprimes[i]/es[i] > 1:
+                radii.append(self._rs[i])
+        return radii
 
     def plot_vr_at(self, r):
         self._plot_vr_calls += 1
@@ -377,6 +390,18 @@ class EOBInspiral:
         plt.annotate(r'$r_{ISCO}$', (self._r_isco, 0.1*max(self._es)), color='g', bbox=bbox)
         # plt.vlines(r_crit(self._a), min(self._es), max(self._es))
         # plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
+
+    def plot_eccentricity_r_per_r_isco(self):
+        plt.plot(self._rs/self._r_isco, self._es, label='a={}'.format(round(self._a,2)))
+        plt.xlabel(r'$r/r_{isco}$')
+        plt.ylabel(r'$e$')
+        plt.vlines(1, 0, max(self._es), colors='g')
+        plt.vlines(r_crit(self._a)/self._r_isco, min(self._es), max(self._es))
+        bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
+        plt.annotate(r'$r_{crit}$', (r_crit(self._a)/self._r_isco, 0.5*max(self._es)), color='k', bbox=bbox)
+        # rincs = self.r_inc()
+        # plt.vlines([i/self._r_isco for i in rincs], min(self._es), max(self._es))
+
 
     def plot_eccentricity_p(self):
         plt.plot(self._ps, self._es)
