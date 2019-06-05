@@ -360,9 +360,7 @@ class EOBInspiral:
 
     def plot_radial_trajectory(self):
         plt.plot(self._ts, self._rs, label='eob_inspiral')
-        plt.plot(self._ts, np.ones(len(self._ts))*self._r_isco, 'g')
-        if self._stop_factor is not None:
-            plt.plot(self._ts, np.ones(len(self._ts))*self._r_isco*self._stop_factor)
+        plt.hlines(self._r_isco, min(self._ts), max(self._ts), color='g')
         if self._do_proper:
             label = r'$\tau$'
         else:
@@ -392,13 +390,13 @@ class EOBInspiral:
         # plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
 
     def plot_eccentricity_r_per_r_isco(self):
-        plt.plot(self._rs/self._r_isco, self._es, label='a={}'.format(round(self._a,2)))
+        plt.plot(self._rs/self._r_isco, self._es, label=r'$\tilde{{a}}$={}'.format(round(self._a,2)))
         plt.xlabel(r'$r/r_{isco}$')
         plt.ylabel(r'$e$')
         plt.vlines(1, 0, max(self._es), colors='g')
-        plt.vlines(r_crit(self._a)/self._r_isco, min(self._es), max(self._es))
-        bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        plt.annotate(r'$r_{crit}$', (r_crit(self._a)/self._r_isco, 0.5*max(self._es)), color='k', bbox=bbox)
+        # plt.vlines(r_crit(self._a)/self._r_isco, min(self._es), max(self._es))
+        # bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
+        # plt.annotate(r'$r_{crit}$', (r_crit(self._a)/self._r_isco, 0.5*max(self._es)), color='k', bbox=bbox)
         # rincs = self.r_inc()
         # plt.vlines([i/self._r_isco for i in rincs], min(self._es), max(self._es))
 
