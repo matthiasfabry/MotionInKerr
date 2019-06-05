@@ -19,11 +19,11 @@ def lambda_kerr(a, r):
 
 
 def _t_kerr(a, r, en, l_z):
-    return en * (r**2+a**2) - l_z * a
+    return en*(r**2+a**2) - l_z*a
 
 
 def v_r(a, r, en, l_z):
-    return _t_kerr(a, r, en, l_z) ** 2 - delta(a, r) * (r ** 2 + (l_z - a * en) ** 2)
+    return _t_kerr(a, r, en, l_z)**2 - delta(a, r)*(r**2 + (l_z - a*en)**2)
 
 
 def v_r_coeffs(a, en, l_z):
@@ -36,12 +36,12 @@ def v_r_coeffs(a, en, l_z):
             -1.]
 
 
-def v_t(a, r, e, l_z):
-    return -a * (a * e - l_z) + (r ** 2 + a ** 2) * _t_kerr(a, r, e, l_z) / delta(a, r)
+def v_t(a, r, en, l_z):
+    return -a * (a * en - l_z) + (r ** 2 + a ** 2) * _t_kerr(a, r, en, l_z) / delta(a, r)
 
 
-def v_phi(a, r, e, l_z):
-    return -(a * e - l_z) + a * _t_kerr(a, r, e, l_z) / delta(a, r)
+def v_phi(a, r, en, l_z):
+    return -(a * en - l_z) + a * _t_kerr(a, r, en, l_z) / delta(a, r)
 
 
 def drdtau(a, r, e, l_z):
@@ -84,15 +84,11 @@ def _x2(a, p, e):
         sign = 1
     else:
         sign = -1
-    return (-_n(a, p, e) - sign*np.sqrt(_deltax(a, p, e))) / (2 * _f(a, p, e))
+    return (-_n(a, p, e) - sign*np.sqrt(_deltax(a, p, e))) / (2*_f(a, p, e))
 
 
 def _f(a, p, e):
-    return 1.0/p**3*(p**3-2*(3+e**2)*p**2+(3+e**2)**2*p-4*a**2*(1-e**2)**2)
-
-
-def _c(a, p, e):
-    return (a**2-p)**2
+    return 1.0/p**3*(p**3 - 2*(3+e**2)*p**2 + (3+e**2)**2*p - 4*a**2*(1-e**2)**2)
 
 
 def _n(a, p, e):
@@ -100,7 +96,7 @@ def _n(a, p, e):
 
 
 def _deltax(a, p, e):
-    return 16*a**2/p**3*(p**4-4*p**3+2*(2*(1-e**2)+a**2*(1+e**2))*p**2-4*a**2*(1-e**2)*p*a**4*(1-e**2)**2)
+    return 16*a**2/p**3*(p**4 - 4*p**3 + 2*(2*(1-e**2)+a**2*(1+e**2))*p**2 - 4*a**2*(1-e**2)*p + a**4*(1-e**2)**2)
 
 
 def energy(a: float, p: float, e: float):
@@ -111,7 +107,7 @@ def energy(a: float, p: float, e: float):
     :param e: float, eccentricity
     :return: float, energy
     """
-    return np.sqrt(1 - (1-e**2) / p * (1 - _x2(a, p, e) / p ** 2 * (1 - e ** 2)))
+    return np.sqrt(1 - (1-e**2) / p * (1 - _x2(a, p, e) / p**2 * (1 - e**2)))
 
 
 def lz(a: float, p: float, e: float):

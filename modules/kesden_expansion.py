@@ -142,18 +142,18 @@ class KesdensExpansionDimensionless:
         tsminus = np.linspace(-4, 0, 200)
         tsplus = np.linspace(1, 4, 200)
         plt.figure(figsize=(7, 4), dpi=200)
-        plt.plot(tsminus, np.sqrt(-tsminus), 'r')
-        plt.plot(tsplus, -6/(tsplus-3.412)**2, 'r')
-        plt.plot(self._ts, self._xs)
+        plt.plot(tsminus, np.sqrt(-tsminus), 'k--')
+        plt.plot(tsplus, -6/(tsplus-3.412)**2, 'k--')
+        plt.plot(self._ts, self._xs, 'k')
         plt.ylim(-4, 3)
         plt.xlim(-4, 4)
-        plt.hlines(0, -4, 4)
-        plt.vlines(0, -4, 4)
+        plt.hlines(0, -4, 4, linestyles='dotted')
+        plt.vlines(0, -4, 4, linestyles='dotted')
         plt.gcf().gca().annotate(r'plunge at $T=3.412$',
                                  (3.412, -4), xytext=(2.06, -2), arrowprops={'arrowstyle': '->'})
         plt.xlabel(r'$T$')
         plt.ylabel(r'$X$')
-        plt.tight_layout(pad=0.22)
+        plt.tight_layout(pad=0.25)
 
     def get_isco_crossing_time(self):
         return self._transition_time
