@@ -184,7 +184,8 @@ class EOBInspiral:
         :param stop_factor: float, stop of the inspiral in units of r_isco
         :param do_loss: boolean, switch to put energy flux to zero if False
         :param do_proper: boolean, switch to do inspiral in terms of proper time (True) or coordinate time (False)
-        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object: either 'iscopercent' or 'scalewithX'
+        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object:
+                                    use 'iscopercent' or 'scalewithX'
         """
         self._ecc_init = eccentricity
         self._stop_factor = stop_factor

@@ -1,6 +1,4 @@
 *.ipynb
 /.ipynb_checkpoints
-/*.py
-parameterspacesearch.txt
 *.pyc
 .idea/*
