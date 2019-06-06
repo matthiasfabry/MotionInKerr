@@ -8,7 +8,7 @@ font = {'family': 'serif', 'size': 14}
 plt.rc('font', **font)
 
 
-data = np.loadtxt('parameterspacesearch_percent.txt', skiprows=1)
+data = np.loadtxt('parameterspacesearch_scale.txt', skiprows=1)
 etas = data[0, 1:]
 spins = data[1:, 0]
 etas_grid, spins_grid = np.meshgrid(np.log10(etas), spins)
@@ -19,15 +19,14 @@ maximum = max(max(data[i, 1:]) for i in range(1, len(data)))
 def threedee_fig():
     fig = plt.figure(figsize=(7, 4), dpi=200)
     ax = fig.gca(projection='3d')
-    norm = Normalize(0, 0.25*maximum)
-    ax.plot_surface(etas_grid, spins_grid, data[1:, 1:], norm=norm, cmap='inferno')
-    ax.set_zlim(0, 0.8*maximum)
+    ax.plot_surface(etas_grid, spins_grid, np.log10(data[1:, 1:]), cmap='inferno')
+    # ax.set_zlim(0, 0.8*maximum)
     ax.set_xlabel(r'$\log\eta$')
     ax.set_ylabel(r'$a/M$')
-    ax.set_zlabel('average relative error')
+    ax.set_zlabel('log(average relative error)')
     ax.set_xticks([-2, -3, -4, -5, -6])
     ax.set_yticks([-0.8, -0.4, 0.0, 0.4, 0.8])
-    ax.set_zticks([0.005*i for i in range(2)])
+    ax.set_zticks([-1*i for i in range(2, 5)])
     plt.tight_layout()
     plt.show()
 
