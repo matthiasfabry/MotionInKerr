@@ -58,10 +58,8 @@ class KesdensExpansion:
         self._taus = np.linspace(self._transition_start, self._transition_end, 200, endpoint=True)
         self._rs = self._ode_solution.__call__(self._taus)[0]
 
-    def __init__(self, eob_equivalent, a: float, eta: float, do_correlation: bool = False,
-                 span: float = 6000, tau_init: float = -1e7)\
-            -> None:
-        self._do_correlation = do_correlation
+    def __init__(self, eob_equivalent, a: float, eta: float,
+                 span: float = 6000, tau_init: float = -1e7) -> None:
         self._taus = None
         self._rs = None
         self._eob_equivalent = eob_equivalent
@@ -79,10 +77,14 @@ class KesdensExpansion:
         self._kappa = 32. / 5 * omega_isco(self._a) ** (7. / 3) * eps_at_isco(self._a) * (
                 1 + self._a / self._r_isco ** 1.5) / np.sqrt(
             1 - 3 / self._r_isco + 2 * self._a / self._r_isco ** 1.5)
+        self._r_break = (self._beta*self._kappa*self._eta)**0.4*self._alpha**(-0.6)
         self._ode_solution = self._evolve()
 
     def get_eob_equivalent(self):
         return self._eob_equivalent
+
+    def get_r_break(self):
+        return self._r_break
 
     def get_tau_init(self):
         return self._tau_init

@@ -1,5 +1,5 @@
 """
-Class supporting the calculation of Effective One Body inspirals, following the recipe of Damour et al.
+Class supporting the calculation of Effective One Body EMRIs, following the recipe of Damour et al.
 
 author: Matthias Fabry
 date: 25 May 2019
@@ -9,7 +9,7 @@ date: 25 May 2019
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 import sympy as sp
-import modules.kesden_expansion
+import modules.kesden_expansion as kesden
 
 from matplotlib import animation
 from modules.corrections import eps_at_isco
@@ -103,10 +103,16 @@ class EOBInspiral:
 
         if self._do_correlation:
             def transition_start(t, y):
-                return y[0] - 1.01 * self._r_isco
+                if self._correlation_mode == 'iscopercent':
+                    return y[0] - 1.01 * self._r_isco
+                elif self._correlation_mode == 'scalewithX':
+                    return y[0] - (self._r_isco+self._kesden_equivalent.get_r_break())
 
             def transition_end(t, y):
-                return y[0] - 0.99 * self._r_isco
+                if self._correlation_mode == 'iscopercent':
+                    return y[0] - 0.99 * self._r_isco
+                elif self._correlation_mode == 'scalewithX':
+                    return y[0] - (self._r_isco-self._kesden_equivalent.get_r_break())
             transition_end.terminal = True
             start = 0
             events = [transitions, transition_start, transition_end]
@@ -114,7 +120,6 @@ class EOBInspiral:
             if self._stop_factor is not None:
                 def force_stop(t, y):
                     return y[0] - self._stop_factor * self._r_isco
-
                 force_stop.terminal = True
                 start = 0
                 events = [transitions, force_stop]
@@ -155,20 +160,11 @@ class EOBInspiral:
         # print(integration)
         self._transition_time = integration.t_events[0][0]
         if self._do_correlation:
-            ts = None
-            if self._correlation_mode == 'eob':
-                ts = np.linspace(integration.t_events[1][0], integration.t_events[2][0], 200, endpoint=True) - \
-                     (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
-                evals = integration.sol.__call__(ts)
-                return ts, evals[0], evals[1], evals[2], evals[3]
-            elif self._correlation_mode == 'mk':
-                ts = self._kesden_equivalent.get_taus() + \
-                     (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
-                evals = integration.sol.__call__(ts)
-                ts -= (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time())
-                return ts, evals[0], evals[1], evals[2], evals[3]
-            if ts is None:
-                raise RuntimeError('correlation mode is not set properly')
+            ts = np.linspace(integration.t_events[1][0],
+                             integration.t_events[2][0],
+                             200, endpoint=True)
+            evals = integration.sol.__call__(ts)
+            return ts - (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time()), evals[0], evals[1], evals[2], evals[3]
         else:
             ts = np.linspace(0, integration.t[-1], int(1e4))
             evals = integration.sol.__call__(ts)
@@ -188,17 +184,18 @@ class EOBInspiral:
         :param stop_factor: float, stop of the inspiral in units of r_isco
         :param do_loss: boolean, switch to put energy flux to zero if False
         :param do_proper: boolean, switch to do inspiral in terms of proper time (True) or coordinate time (False)
-        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object
+        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object: either 'iscopercent' or 'scalewithX'
         """
         self._ecc_init = eccentricity
         self._stop_factor = stop_factor
+        self._do_proper = do_proper
         if correlation_mode is not None:
             self._do_correlation = True
+            self._do_proper = True
             self._correlation_mode = correlation_mode
-            self._kesden_equivalent = modules.kesden_expansion.KesdensExpansion(self, a, eta)
+            self._kesden_equivalent = kesden.KesdensExpansion(self, a, eta)
         else:
             self._do_correlation = False
-        self._do_proper = do_proper
         self._doLoss = do_loss
         self._span = 10000.0
         self._risco_factor = risco_factor
@@ -216,15 +213,9 @@ class EOBInspiral:
         self._dHdprlamb = sp.lambdify((r, pr, pphi), self._dHdpr, 'numpy')
         self._dHdpphilamb = sp.lambdify((r, pr, pphi), self._dHdpphi, 'numpy')
         self._dHdrlamb = sp.lambdify((r, pr, pphi), self._dHdr, 'numpy')
-
-        if correlation_mode == 'oeb':
-            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
+        self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
+        if correlation_mode is not None:
             self._kesden_equivalent.evaluate_in(self._ts)
-        elif correlation_mode == 'mk':
-            self._kesden_equivalent.evaluate_in_transition()
-            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
-        else:
-            self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
         self._ens = self._Hlamb(self._rs, self._prs, self._pphis)
         self._ps, self._es = get_orbital_parameters(self._a, self._ens, self._pphis)
         self._eprimes = [0] + [(self._es[i]-self._es[i-1])/(self._rs[i]-self._rs[i-1])
@@ -389,14 +380,17 @@ class EOBInspiral:
         plt.annotate(r'$r_{crit}$', (r_crit(self._a), 0.5*max(self._es)), color='k', bbox=bbox)
         # plt.vlines([i for i in self.r_inc()], min(self._es), max(self._es))
 
-    def plot_eccentricity_r_per_r_isco(self):
-        plt.plot(self._rs/self._r_isco, self._es, label=r'$\tilde{{a}}$={}'.format(round(self._a,2)))
+    def plot_eccentricity_r_per_r_isco(self, draw_rcrit: bool = False):
+        index_break = np.where(self._es == max(self._es))[0][0]
+        print(index_break)
+        plt.plot(self._rs[:index_break]/self._r_isco, self._es[:index_break], label=r'$\tilde{{a}}$={}'.format(round(self._a,2)))
         plt.xlabel(r'$r/r_{isco}$')
         plt.ylabel(r'$e$')
-        plt.vlines(1, 0, max(self._es), colors='g')
-        plt.vlines(r_crit(self._a)/self._r_isco, min(self._es), max(self._es))
-        bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
-        plt.annotate(r'$r_{crit}$', (r_crit(self._a)/self._r_isco, 0.5*max(self._es)), color='k', bbox=bbox)
+        plt.vlines(1, 0, max(self._es), linestyles='dotted')
+        if draw_rcrit:
+            plt.vlines(r_crit(self._a)/self._r_isco, min(self._es), max(self._es))
+            bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
+            plt.annotate(r'$r_{crit}$', (r_crit(self._a)/self._r_isco, 0.5*max(self._es)), color='k', bbox=bbox)
 
     def plot_eccentricity_p(self):
         plt.plot(self._ps, self._es)
