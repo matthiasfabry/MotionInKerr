@@ -149,13 +149,13 @@ class EOBInspiral:
                 if len(integration.t_events[2]) > 0:
                     done = True
                 else:
-                    self._span *= 2.0
+                    self._span *= 5.0
                     count += 1
             else:
                 if len(integration.t_events[0]) > 0:
                     done = True
                 else:
-                    self._span *= 2.0
+                    self._span *= 5.0
                     count += 1
         # print(integration)
         self._transition_time = integration.t_events[0][0]
@@ -176,7 +176,8 @@ class EOBInspiral:
                  correlation_mode: str = None) -> None:
         """
         Creates an EOB inspiral object with the paramters given. It immediately evolves the inspiral.
-        Also, if do_correlation is True, it creates a KesdenExpansion object to compare with
+        Also, if correlation_mode is not Node, it creates an equivalent OriThorneExpansion object to compare with
+
         :param a: float, spin of Kerr BH -1<a<1
         :param eta: float, mass ratio
         :param risco_factor: float, start of the inspiral in units of r_isco
@@ -184,7 +185,7 @@ class EOBInspiral:
         :param stop_factor: float, stop of the inspiral in units of r_isco
         :param do_loss: boolean, switch to put energy flux to zero if False
         :param do_proper: boolean, switch to do inspiral in terms of proper time (True) or coordinate time (False)
-        :param correlation_mode: string, switch to do a correlation with a KesdenInspiral object:
+        :param correlation_mode: string, switch to do a correlation with a OriThorneExpansion object:
                                     use 'iscopercent' or 'scalewithX'
         """
         self._ecc_init = eccentricity
@@ -299,15 +300,15 @@ class EOBInspiral:
         if not self._do_correlation:
             raise ValueError('not supported in \'do_correlation = False\' mode')
         crosstime = self._ot_equivalent.get_isco_crossing_time()
-        plt.plot(self._ts, self._rs, 'b', label='EOB Inspiral')
-        plt.plot(self._kesden_equivalent.get_taus()-self._kesden_equivalent.get_isco_crossing_time(),
-                 self._kesden_equivalent.get_rs(), 'r', label='MK\'s expansion')
-        plt.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), np.ones(len(self._ts))*self._r_isco, 'g')
-        plt.fill_between(self._ts-self._kesden_equivalent.get_isco_crossing_time(),
-                         self._kesden_equivalent.get_rs(), self._rs, color='black', alpha='0.2')
+        plt.plot(self._ts-crosstime, self._rs, 'b', label='EOB Inspiral')
+        plt.plot(self._ot_equivalent.get_taus()-crosstime,
+                 self._ot_equivalent.get_rs(), 'r', label='OT\'s expansion')
+        plt.plot(self._ts-crosstime, np.ones(len(self._ts))*self._r_isco, 'g')
+        plt.fill_between(self._ts-crosstime,
+                         self._ot_equivalent.get_rs(), self._rs, color='black', alpha='0.2')
         bbox = dict(boxstyle='round', fc='w', ec='w', lw=0., alpha=0.9, pad=0.2)
         plt.annotate(r'$r_{ISCO}$', (self._ts[int(len(self._ts) * 0.85)] -
-                                     self._kesden_equivalent.get_isco_crossing_time(), self._r_isco),
+                                     self._ot_equivalent.get_isco_crossing_time(), self._r_isco),
                      color='g', bbox=bbox)
         plt.annotate(r'$a = {} M$'.format(self._a), (0.05, 0.05), xycoords='axes fraction', bbox=bbox)
         plt.annotate(r'$\eta = {}$'.format(self._eta), (0.05, 0.15), xycoords='axes fraction', bbox=bbox)
