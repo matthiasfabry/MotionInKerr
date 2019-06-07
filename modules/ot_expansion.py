@@ -10,7 +10,7 @@ from modules.isco_values import *
 from modules.kerr_functions import *
 
 
-class KesdensExpansion:
+class OriThorneExpansion:
 
     def _transition_start(self, t, y):
         return y[0] - 1.01*self._r_isco
@@ -31,7 +31,7 @@ class KesdensExpansion:
         done = False
         count = 1
         while not done:
-            print('starting Kesden inspiral, number', count, 'of the same inspiral')
+            print('starting OT inspiral, number', count, 'of the same inspiral')
             # noinspection PyTypeChecker
             sol = integrate.solve_ivp(self._ders,
                                       (self._tau_init, self._span),
@@ -108,7 +108,7 @@ class KesdensExpansion:
         plt.ylim((self._r_isco * 0.95, self._r_isco * 1.05))
 
 
-class KesdensExpansionDimensionless:
+class OriThorneExpansionDimensionless:
     _tinit = -2.e6
     _tend = 3.412e0
     _solinit = [np.sqrt(-_tinit), -0.5 / np.sqrt(-_tinit)]
@@ -125,8 +125,8 @@ class KesdensExpansionDimensionless:
 
     def _evolve(self):
         sol = integrate.solve_ivp(self._ders,
-                                  (KesdensExpansionDimensionless._tinit, KesdensExpansionDimensionless._tend),
-                                  KesdensExpansionDimensionless._solinit,
+                                  (OriThorneExpansionDimensionless._tinit, OriThorneExpansionDimensionless._tend),
+                                  OriThorneExpansionDimensionless._solinit,
                                   dense_output=True, events=self._transitions, method='Radau')
         self._transition_time = sol.t_events[0][0]
         return sol.sol

@@ -9,7 +9,7 @@ date: 25 May 2019
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 import sympy as sp
-import modules.kesden_expansion as kesden
+import modules.ot_expansion as ot
 
 from matplotlib import animation
 from modules.corrections import eps_at_isco
@@ -106,13 +106,13 @@ class EOBInspiral:
                 if self._correlation_mode == 'iscopercent':
                     return y[0] - 1.01 * self._r_isco
                 elif self._correlation_mode == 'scalewithX':
-                    return y[0] - (self._r_isco+self._kesden_equivalent.get_r_break())
+                    return y[0] - (self._r_isco+self._ot_equivalent.get_r_break())
 
             def transition_end(t, y):
                 if self._correlation_mode == 'iscopercent':
                     return y[0] - 0.99 * self._r_isco
                 elif self._correlation_mode == 'scalewithX':
-                    return y[0] - (self._r_isco-self._kesden_equivalent.get_r_break())
+                    return y[0] - (self._r_isco-self._ot_equivalent.get_r_break())
             transition_end.terminal = True
             start = 0
             events = [transitions, transition_start, transition_end]
@@ -164,7 +164,7 @@ class EOBInspiral:
                              integration.t_events[2][0],
                              200, endpoint=True)
             evals = integration.sol.__call__(ts)
-            return ts - (integration.t_events[0][0] - self._kesden_equivalent.get_isco_crossing_time()), evals[0], evals[1], evals[2], evals[3]
+            return ts - (integration.t_events[0][0] - self._ot_equivalent.get_isco_crossing_time()), evals[0], evals[1], evals[2], evals[3]
         else:
             ts = np.linspace(0, integration.t[-1], int(1e4))
             evals = integration.sol.__call__(ts)
@@ -194,7 +194,7 @@ class EOBInspiral:
             self._do_correlation = True
             self._do_proper = True
             self._correlation_mode = correlation_mode
-            self._kesden_equivalent = kesden.KesdensExpansion(self, a, eta)
+            self._ot_equivalent = ot.OriThorneExpansion(self, a, eta)
         else:
             self._do_correlation = False
         self._doLoss = do_loss
@@ -216,7 +216,7 @@ class EOBInspiral:
         self._dHdrlamb = sp.lambdify((r, pr, pphi), self._dHdr, 'numpy')
         self._ts, self._rs, self._phis, self._prs, self._pphis = self._evolve()
         if correlation_mode is not None:
-            self._kesden_equivalent.evaluate_in(self._ts)
+            self._ot_equivalent.evaluate_in(self._ts)
         self._ens = self._Hlamb(self._rs, self._prs, self._pphis)
         self._ps, self._es = get_orbital_parameters(self._a, self._ens, self._pphis)
         self._eprimes = [0] + [(self._es[i]-self._es[i-1])/(self._rs[i]-self._rs[i-1])
@@ -232,8 +232,8 @@ class EOBInspiral:
     def get_es(self):
         return self._es
 
-    def get_kesden_equivalent(self):
-        return self._kesden_equivalent
+    def get_ot_equivalent(self):
+        return self._ot_equivalent
 
     def get_isco_crossing_time(self):
         return self._transition_time
@@ -256,7 +256,7 @@ class EOBInspiral:
             raise ValueError('correlation not supported in \'do_correlation = False\' mode')
         relerror = 0
         for i in range(len(self._ts)):
-            relerror += np.abs(self._rs[i] - self._kesden_equivalent.get_rs()[i]) / \
+            relerror += np.abs(self._rs[i] - self._ot_equivalent.get_rs()[i]) / \
                      self._rs[i]
         return relerror / len(self._ts)
 
@@ -298,7 +298,8 @@ class EOBInspiral:
     def plot_crossing_correlation(self):
         if not self._do_correlation:
             raise ValueError('not supported in \'do_correlation = False\' mode')
-        plt.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), self._rs, 'b', label='EOB Inspiral')
+        crosstime = self._ot_equivalent.get_isco_crossing_time()
+        plt.plot(self._ts, self._rs, 'b', label='EOB Inspiral')
         plt.plot(self._kesden_equivalent.get_taus()-self._kesden_equivalent.get_isco_crossing_time(),
                  self._kesden_equivalent.get_rs(), 'r', label='MK\'s expansion')
         plt.plot(self._ts-self._kesden_equivalent.get_isco_crossing_time(), np.ones(len(self._ts))*self._r_isco, 'g')
